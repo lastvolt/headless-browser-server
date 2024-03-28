@@ -1,8 +1,26 @@
 const express = require('express');
 const { Cluster } = require('puppeteer-cluster');
+const AWS = require('aws-sdk');
 
 const app = express();
 app.use(express.json());
+
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+
+const uploadToS3 = async (screenshot, screenshotKey) => {
+  const params = {
+    Bucket: 'headless-browser-server-screenshots',
+    Key: screenshotKey,
+    Body: screenshot,
+    ContentType: 'image/png',
+    ACL: 'public-read',
+  };
+
+  await s3.upload(params).promise();
+};
 
 const puppeteerOptions = {
   headless: 'new',
@@ -39,7 +57,28 @@ const launchCluster = async () => {
       }
     }
 
-    const response = await page.goto(url, { timeout: 30000 });
+    await page.setViewport({
+      width: 1920,
+      height: 1080,
+      deviceScaleFactor: 1,
+    });
+
+    let response;
+    try {
+      response = await page.goto(url, {
+        timeout: 30000,
+        waitUntil: 'networkidle0',
+        networkIdleTimeout: 10000,
+      });
+    } catch (error) {
+      if (error.name === 'TimeoutError') {
+        console.log(`[DEBUG] Network idle timeout exceeded for '${url}'`);
+        response = await page.response();
+      } else {
+        throw error;
+      }
+    }
+
     const status_code = response.status();
     const finalUrl = page.url();
     const pageBody = await page.content();
@@ -48,7 +87,24 @@ const launchCluster = async () => {
     const url_string = finalUrl !== url ? `'${url}' -> '${finalUrl}'` : `'${url}'`;
     console.log(`[DEBUG] Fetched ${url_string} status: ${status_code} (${loadTime / 1000}s)`);
 
-    return { response_body: pageBody, status_code: status_code, headers: response.headers() };
+    const screenshotKey = `screenshots/${Date.now()}.png`;
+    const screenshotUrl = `https://s3.amazonaws.com/headless-browser-server-screenshots/${screenshotKey}`;
+
+    const screenshot = await page.screenshot({
+      fullPage: true,
+    });
+
+    uploadToS3(screenshot, screenshotKey).catch((error) => {
+      console.error('Error uploading screenshot to S3:', error);
+    });
+
+    return {
+      response_body: pageBody,
+      status_code: status_code,
+      headers: response.headers(),
+      request_time: loadTime,
+      screenshot_url: screenshotUrl,
+    };
   });
 
   return cluster;

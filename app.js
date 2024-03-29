@@ -1,9 +1,14 @@
 const express = require('express');
 const { Cluster } = require('puppeteer-cluster');
 const AWS = require('aws-sdk');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 const app = express();
 app.use(express.json());
+
+// Configure puppeteer-extra with the stealth plugin
+puppeteer.use(StealthPlugin());
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -22,27 +27,26 @@ const uploadToS3 = async (screenshot, screenshotKey) => {
   await s3.upload(params).promise();
 };
 
-const puppeteerOptions = {
-  headless: 'new',
-  args: [
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    '--disable-setuid-sandbox',
-    '--no-first-run',
-    '--no-zygote',
-    '--deterministic-fetch',
-    '--disable-features=IsolateOrigins',
-    '--disable-site-isolation-trials',
-  ],
-  // executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  executablePath: '/usr/bin/google-chrome-stable',
-};
-
 const clusterConfig = {
   concurrency: Cluster.CONCURRENCY_CONTEXT,
   maxConcurrency: 2,
-  puppeteerOptions,
+  puppeteerOptions: {
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-setuid-sandbox',
+      '--no-first-run',
+      '--no-zygote',
+      '--deterministic-fetch',
+      '--disable-features=IsolateOrigins',
+      '--disable-site-isolation-trials',
+    ],
+    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    // executablePath: '/usr/bin/google-chrome-stable',
+  },
+  puppeteer,
 };
 
 const launchCluster = async () => {

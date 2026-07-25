@@ -1,5 +1,10 @@
 # Playwright's official image ships the browsers + system deps preinstalled.
-FROM mcr.microsoft.com/playwright:v1.48.0-jammy
+#
+# THIS TAG MUST MATCH the playwright version in package-lock.json. The image's browser
+# builds are version-specific: `npm ci --ignore-scripts` below downloads NO browsers, so
+# a newer library looks for a browser revision the image doesn't have and the container
+# crash-loops with "Executable doesn't exist at /ms-playwright/...". Bump both together.
+FROM mcr.microsoft.com/playwright:v1.61.1-jammy
 
 WORKDIR /app
 

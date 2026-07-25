@@ -1,0 +1,26 @@
+{
+  "name": "headless-browser-server",
+  "version": "2.0.0",
+  "description": "Playwright-based render service: POST a URL, get back the fully rendered HTML.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "postinstall": "playwright install chromium"
+  },
+  "keywords": [
+    "playwright",
+    "headless",
+    "render",
+    "scraping"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

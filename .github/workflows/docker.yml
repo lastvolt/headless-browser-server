@@ -1,0 +1,46 @@
+# Build + push the service image to GHCR on every push to the default branch. This
+# only publishes the image — it does not deploy anything. The pushed manifest digest is
+# printed to the job summary so a deployment can pin the image by digest.
+name: docker
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+      - name: Digest to job summary (pin this by digest when deploying)
+        run: |
+          {
+            echo '## Image pushed'
+            echo
+            echo 'Pin this immutable reference in your deployment:'
+            echo
+            echo '```'
+            echo "ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
